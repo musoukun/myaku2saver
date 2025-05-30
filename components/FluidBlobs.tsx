@@ -73,6 +73,9 @@ export default function FluidBlobs() {
 				// 初期の球体はパルスしない
 				isPulsing: false,
 				pulseProgress: 0,
+				// 初期世代は第0世代
+				generation: 0,
+				isNewBorn: false, // 初期球体は新生児ではない
 			});
 		}
 		return komyakuArray;

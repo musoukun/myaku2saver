@@ -40,11 +40,54 @@ export function applyRepulsion(komyaku1: KomyakuData, komyaku2: KomyakuData) {
   komyaku2.velocity.z += nz * force
 }
 
-// 分裂処理
+// 新しい大きな子脈を生成する関数
+export function createNewBornKomyaku(): KomyakuData {
+  const colors = Object.values(COLORS)
+  const radius = 0.8 + Math.random() * 0.4 // 初期サイズと同じかやや大きめ
+  
+  return {
+    id: nextId++,
+    position: new THREE.Vector3(
+      (Math.random() - 0.5) * 14,
+      (Math.random() - 0.5) * 8,
+      (Math.random() - 0.5) * 4
+    ),
+    velocity: new THREE.Vector3(
+      (Math.random() - 0.5) * 0.004,
+      (Math.random() - 0.5) * 0.004,
+      (Math.random() - 0.5) * 0.004
+    ),
+    radius,
+    originalRadius: radius,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    mass: radius,
+    driftDirection: new THREE.Vector3(
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2,
+      (Math.random() - 0.5) * 2
+    ).normalize(),
+    eyePhase: Math.random() * Math.PI * 2,
+    age: 0,
+    canSplit: true,
+    isSplitting: false,
+    splitProgress: 0,
+    splitDirection: new THREE.Vector3(),
+    isDying: false,
+    deathProgress: 0,
+    opacity: 1,
+    childSphere1Offset: new THREE.Vector3(),
+    childSphere2Offset: new THREE.Vector3(),
+    isPulsing: true, // 新生児はパルスする
+    pulseProgress: 0,
+    generation: 0, // 新生児は第0世代
+    isNewBorn: true
+  }
+}
 export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] {
   const newRadius = originalKomyaku.originalRadius * 0.7
   // 分裂時は必ず同じ色にする
   const parentColor = originalKomyaku.color
+  const childGeneration = originalKomyaku.generation + 1 // 世代を進める
   
   const komyaku1: KomyakuData = {
     id: nextId++,
@@ -72,7 +115,9 @@ export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] 
     childSphere2Offset: new THREE.Vector3(),
     // パルスエフェクトで新しい子脈を強調
     isPulsing: true,
-    pulseProgress: 0
+    pulseProgress: 0,
+    generation: childGeneration,
+    isNewBorn: false // 分裂産みは新生児ではない
   }
   
   const komyaku2: KomyakuData = {
@@ -101,7 +146,9 @@ export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] 
     childSphere2Offset: new THREE.Vector3(),
     // パルスエフェクトで新しい子脈を強調
     isPulsing: true,
-    pulseProgress: 0
+    pulseProgress: 0,
+    generation: childGeneration,
+    isNewBorn: false // 分裂産みは新生児ではない
   }
   
   return [komyaku1, komyaku2]
@@ -120,6 +167,17 @@ export function updatePhysics(
   const newKomyakus: KomyakuData[] = []
   const shouldTriggerDeath = komyakus.length >= DEATH_TRIGGER_COUNT
   
+  // 新生児生成の判定（一定確率で大きな子脈を生成）
+  const shouldSpawnNewBorn = komyakus.length < MAX_KOMYAKU_COUNT - 2 && 
+                           Math.random() < 0.002 && // 確率を上げる
+                           komyakus.filter(k => k.isNewBorn).length === 0 && // 既に新生児がいない場合
+                           komyakus.filter(k => k.generation === 0).length < 3 // 第0世代が3個未満
+  
+  if (shouldSpawnNewBorn) {
+    const newBorn = createNewBornKomyaku()
+    newKomyakus.push(newBorn)
+  }
+  
   for (let i = 0; i < komyakus.length; i++) {
     const komyaku = komyakus[i]
     
@@ -131,11 +189,18 @@ export function updatePhysics(
       if (komyaku.pulseProgress >= 1) {
         komyaku.isPulsing = false
         komyaku.pulseProgress = 0
+        // パルス終了時に新生児フラグをリセット
+        if (komyaku.isNewBorn) {
+          komyaku.isNewBorn = false
+        }
       }
     }
     
-    // 消滅判定
-    if (!komyaku.isDying && !komyaku.isSplitting && shouldTriggerDeath && Math.random() < 0.002) {
+    // 消滅判定（高世代の小さな球体は早めに消滅）
+    const ageDeathProbability = komyaku.generation >= 3 && komyaku.radius < 0.5 ? 0.004 : 0.002
+    if (!komyaku.isDying && !komyaku.isSplitting && 
+        (shouldTriggerDeath || komyaku.age > 20 + komyaku.generation * 5) && 
+        Math.random() < ageDeathProbability) {
       komyaku.isDying = true
       komyaku.deathProgress = 0
     }
@@ -149,8 +214,11 @@ export function updatePhysics(
       }
     }
     
-    // 分裂判定
-    if (!komyaku.isSplitting && !komyaku.isDying && komyaku.canSplit && komyaku.age > 5 && Math.random() < 0.001) {
+    // 分裂判定（世代が進みすぎたら分裂しない）
+    const maxGeneration = 4 // 最大4世代まで
+    if (!komyaku.isSplitting && !komyaku.isDying && komyaku.canSplit && 
+        komyaku.age > 5 && komyaku.generation < maxGeneration && 
+        komyaku.radius > 0.4 && Math.random() < 0.001) {
       komyaku.isSplitting = true
       komyaku.splitProgress = 0
       komyaku.splitDirection = new THREE.Vector3(

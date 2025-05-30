@@ -23,6 +23,9 @@ export interface KomyakuData {
   // パルスエフェクト用
   isPulsing: boolean
   pulseProgress: number
+  // 世代管理用
+  generation: number
+  isNewBorn: boolean
 }
 
 export const COLORS = {
