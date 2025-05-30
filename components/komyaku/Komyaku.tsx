@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import React, { useRef, useState } from "react";
@@ -6,6 +7,7 @@ import * as THREE from "three";
 import Sphere from "./Sphere";
 import WhiteEye from "./WhiteEye";
 import Pupil from "./Pupil";
+import SimpleMetaball from "./SimpleMetaball";
 import { KomyakuData } from "./types";
 
 // 球体の色定義
@@ -45,13 +47,18 @@ export default function Komyaku({ komyakuData }: KomyakuProps) {
 	useFrame((state) => {
 		if (groupRef.current) {
 			groupRef.current.position.copy(komyakuData.position);
-			groupRef.current.lookAt(0, 0, 12);
+			// 分裂時はメタボールが位置を制御するので、メインの位置をリセット
+			if (!komyakuData.isSplitting) {
+				groupRef.current.lookAt(0, 0, 12);
+			}
 		}
 
 		// 分裂アニメーション
 		if (komyakuData.isSplitting) {
 			const progress = komyakuData.splitProgress;
 
+			// 分裂が50%進行したら子球体を表示開始
+			const childStartThreshold = 0.5;
 			const separationDistance =
 				progress * komyakuData.originalRadius * 1.5;
 			komyakuData.childSphere1Offset
@@ -61,14 +68,30 @@ export default function Komyaku({ komyakuData }: KomyakuProps) {
 				.copy(komyakuData.splitDirection)
 				.multiplyScalar(-separationDistance);
 
-			setChildSphere1Visible(true);
-			setChildSphere2Visible(true);
-			setChildSphere1Scale(progress);
-			setChildSphere2Scale(progress);
-			setChildSphere1Opacity(progress);
-			setChildSphere2Opacity(progress);
+			if (progress > childStartThreshold) {
+				const childProgress =
+					(progress - childStartThreshold) /
+					(1 - childStartThreshold);
+				setChildSphere1Visible(true);
+				setChildSphere2Visible(true);
+				setChildSphere1Scale(childProgress);
+				setChildSphere2Scale(childProgress);
+				setChildSphere1Opacity(childProgress);
+				setChildSphere2Opacity(childProgress);
+			} else {
+				setChildSphere1Visible(false);
+				setChildSphere2Visible(false);
+			}
 
-			setEyeOpacity(1 - progress);
+			// メインの球体の透明度は80%進行したら消え始める
+			const fadeStartThreshold = 0.8;
+			if (progress > fadeStartThreshold) {
+				const fadeProgress =
+					(progress - fadeStartThreshold) / (1 - fadeStartThreshold);
+				setEyeOpacity(1 - fadeProgress);
+			} else {
+				setEyeOpacity(1);
+			}
 		} else {
 			setChildSphere1Visible(false);
 			setChildSphere2Visible(false);
@@ -113,68 +136,61 @@ export default function Komyaku({ komyakuData }: KomyakuProps) {
 
 	const colors = Object.values(COLORS);
 	const childRadius = komyakuData.originalRadius * 0.7;
+	// パルスエフェクトの計算（一瞬大きくなって元に戻る）
+	const pulseScale = komyakuData.isPulsing
+		? 1 + Math.sin(komyakuData.pulseProgress * Math.PI) * 0.5 // 0から1の間でサイン波、最大1.5倍に
+		: 1;
+
 	const mainSphereOpacity = komyakuData.isSplitting
-		? 1 - komyakuData.splitProgress
+		? komyakuData.splitProgress > 0.8
+			? 1 - (komyakuData.splitProgress - 0.8) / 0.2 // 80%で消え始める
+			: 1
 		: komyakuData.isDying
 			? 1 - komyakuData.deathProgress
 			: 1.0; // 常に不透明
 	const mainSphereScale = komyakuData.isDying
-		? 1 - komyakuData.deathProgress
-		: 1;
+		? (1 - komyakuData.deathProgress) * pulseScale
+		: pulseScale;
 
 	return (
 		<group ref={groupRef}>
-			{/* メインの球体 */}
-			<Sphere
-				radius={komyakuData.radius}
-				color={komyakuData.color}
-				opacity={mainSphereOpacity}
-				scale={mainSphereScale}
-			/>
+			{komyakuData.isSplitting ? (
+				// 分裂時はメタボールエフェクトを使用
+				<SimpleMetaball
+					progress={komyakuData.splitProgress}
+					radius={komyakuData.radius}
+					color={komyakuData.color}
+					opacity={mainSphereOpacity}
+					visible={true}
+					direction={komyakuData.splitDirection}
+				/>
+			) : (
+				// 通常時は従来の球体
+				<>
+					<Sphere
+						radius={komyakuData.radius}
+						color={komyakuData.color}
+						opacity={mainSphereOpacity}
+						scale={mainSphereScale}
+					/>
 
-			{/* 分裂時の子球体1 */}
-			<Sphere
-				radius={childRadius}
-				color={komyakuData.color}
-				opacity={childSphere1Opacity}
-				scale={childSphere1Scale}
-				position={[
-					komyakuData.childSphere1Offset.x,
-					komyakuData.childSphere1Offset.y,
-					komyakuData.childSphere1Offset.z,
-				]}
-				visible={childSphere1Visible}
-			/>
+					{/* 白目 */}
+					<WhiteEye
+						radius={komyakuData.radius * 0.4}
+						opacity={eyeOpacity}
+						scale={eyeScale}
+						position={whiteEyePosition}
+					/>
 
-			{/* 分裂時の子球体2 */}
-			<Sphere
-				radius={childRadius}
-				color={colors[Math.floor(Math.random() * colors.length)]}
-				opacity={childSphere2Opacity}
-				scale={childSphere2Scale}
-				position={[
-					komyakuData.childSphere2Offset.x,
-					komyakuData.childSphere2Offset.y,
-					komyakuData.childSphere2Offset.z,
-				]}
-				visible={childSphere2Visible}
-			/>
-
-			{/* 白目 */}
-			<WhiteEye
-				radius={komyakuData.radius * 0.4}
-				opacity={eyeOpacity}
-				scale={eyeScale}
-				position={whiteEyePosition}
-			/>
-
-			{/* 黒目 */}
-			<Pupil
-				radius={komyakuData.radius * 0.18}
-				opacity={eyeOpacity}
-				scale={eyeScale}
-				position={pupilPosition}
-			/>
+					{/* 黒目 */}
+					<Pupil
+						radius={komyakuData.radius * 0.18}
+						opacity={eyeOpacity}
+						scale={eyeScale}
+						position={pupilPosition}
+					/>
+				</>
+			)}
 		</group>
 	);
 }

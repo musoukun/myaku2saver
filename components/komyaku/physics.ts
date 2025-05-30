@@ -43,12 +43,13 @@ export function applyRepulsion(komyaku1: KomyakuData, komyaku2: KomyakuData) {
 // 分裂処理
 export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] {
   const newRadius = originalKomyaku.originalRadius * 0.7
-  const colors = Object.values(COLORS)
+  // 分裂時は必ず同じ色にする
+  const parentColor = originalKomyaku.color
   
   const komyaku1: KomyakuData = {
     id: nextId++,
     position: originalKomyaku.position.clone().add(originalKomyaku.childSphere1Offset),
-    velocity: originalKomyaku.velocity.clone().add(originalKomyaku.splitDirection.clone().multiplyScalar(0.02)),
+    velocity: originalKomyaku.velocity.clone().add(originalKomyaku.splitDirection.clone().multiplyScalar(0.004)), // さらに遅く（0.008から0.004に）
     radius: newRadius,
     originalRadius: newRadius,
     color: originalKomyaku.color,
@@ -68,16 +69,19 @@ export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] 
     deathProgress: 0,
     opacity: 1,
     childSphere1Offset: new THREE.Vector3(),
-    childSphere2Offset: new THREE.Vector3()
+    childSphere2Offset: new THREE.Vector3(),
+    // パルスエフェクトで新しい子脈を強調
+    isPulsing: true,
+    pulseProgress: 0
   }
   
   const komyaku2: KomyakuData = {
     id: nextId++,
     position: originalKomyaku.position.clone().add(originalKomyaku.childSphere2Offset),
-    velocity: originalKomyaku.velocity.clone().add(originalKomyaku.splitDirection.clone().multiplyScalar(-0.02)),
+    velocity: originalKomyaku.velocity.clone().add(originalKomyaku.splitDirection.clone().multiplyScalar(-0.004)), // さらに遅く（-0.008から-0.004に）
     radius: newRadius,
     originalRadius: newRadius,
-    color: colors[Math.floor(Math.random() * colors.length)],
+    color: parentColor, // 親と同じ色にする
     mass: newRadius,
     driftDirection: new THREE.Vector3(
       (Math.random() - 0.5) * 2,
@@ -94,7 +98,10 @@ export function createSplitKomyaku(originalKomyaku: KomyakuData): KomyakuData[] 
     deathProgress: 0,
     opacity: 1,
     childSphere1Offset: new THREE.Vector3(),
-    childSphere2Offset: new THREE.Vector3()
+    childSphere2Offset: new THREE.Vector3(),
+    // パルスエフェクトで新しい子脈を強調
+    isPulsing: true,
+    pulseProgress: 0
   }
   
   return [komyaku1, komyaku2]
@@ -107,7 +114,7 @@ export function updatePhysics(
   elapsedTime: number
 ): KomyakuData[] {
   const damping = 0.998
-  const bounds = { x: 7, y: 3.5, z: 2.5 }
+  const bounds = { x: 9, y: 5, z: 3 } // 更に幅広い範囲
   const bounceRestitution = 0.7
   
   const newKomyakus: KomyakuData[] = []
@@ -117,6 +124,15 @@ export function updatePhysics(
     const komyaku = komyakus[i]
     
     komyaku.age += delta
+    
+    // パルスエフェクトの更新
+    if (komyaku.isPulsing) {
+      komyaku.pulseProgress += delta * 4 // パルスの速度
+      if (komyaku.pulseProgress >= 1) {
+        komyaku.isPulsing = false
+        komyaku.pulseProgress = 0
+      }
+    }
     
     // 消滅判定
     if (!komyaku.isDying && !komyaku.isSplitting && shouldTriggerDeath && Math.random() < 0.002) {
@@ -148,7 +164,7 @@ export function updatePhysics(
     
     // 分裂アニメーション進行
     if (komyaku.isSplitting) {
-      komyaku.splitProgress += delta * 0.8 // 分裂を遅く（1.5から0.8に）
+      komyaku.splitProgress += delta * 0.5 // 分裂をもっと遅く（0.8から0.5に）
       
       if (komyaku.splitProgress >= 1) {
         const splitKomyakus = createSplitKomyaku(komyaku)
@@ -158,20 +174,20 @@ export function updatePhysics(
     }
     
     // 基本的な物理演算
-    const driftForce = komyaku.driftDirection.clone().multiplyScalar(0.00002) // 遅く（0.00005から0.00002に）
+    const driftForce = komyaku.driftDirection.clone().multiplyScalar(0.00001) // さらに遅く（0.00002から0.00001に）
     komyaku.velocity.add(driftForce)
     
     const randomForce = new THREE.Vector3(
-      (Math.random() - 0.5) * 0.00003, // 遅く（0.00008から0.00003に）
-      (Math.random() - 0.5) * 0.00003,
-      (Math.random() - 0.5) * 0.00003
+      (Math.random() - 0.5) * 0.000015, // さらに遅く（0.00003から0.000015に）
+      (Math.random() - 0.5) * 0.000015,
+      (Math.random() - 0.5) * 0.000015
     )
     komyaku.velocity.add(randomForce)
     
     const floatForce = new THREE.Vector3(
-      Math.sin(elapsedTime * 0.2 + komyaku.id) * 0.00001, // 遅く（0.4から0.2に、加速度も0.00002から0.00001に）
-      Math.cos(elapsedTime * 0.15 + komyaku.id) * 0.00001, // 0.3から0.15に
-      Math.sin(elapsedTime * 0.25 + komyaku.id) * 0.000005 // 0.5から0.25に、0.00001から0.000005に
+      Math.sin(elapsedTime * 0.1 + komyaku.id) * 0.000005, // さらに遅く（0.2から0.1に、0.00001から0.000005に）
+      Math.cos(elapsedTime * 0.08 + komyaku.id) * 0.000005, // 0.15から0.08に
+      Math.sin(elapsedTime * 0.12 + komyaku.id) * 0.0000025 // 0.25から0.12に、0.000005から0.0000025に
     )
     komyaku.velocity.add(floatForce)
     

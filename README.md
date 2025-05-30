@@ -1,36 +1,184 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Myaku2Saver
 
-## Getting Started
+## プロジェクト概要
 
-First, run the development server:
+Myaku2Saverは、Three.jsとReact Three Fiberを使用した3Dインタラクティブビジュアライゼーションアプリケーションです。「脈」をテーマにした有機的な球体（Komyaku）が画面上で動き回り、物理シミュレーションによって分裂・消滅を繰り返すアートプロジェクトです。
 
+## 技術仕様
+
+### フレームワーク・ライブラリ
+- **Next.js 15.3.3** - Reactベースのフルスタックフレームワーク
+- **React 19.0.0** - UIライブラリ
+- **TypeScript 5** - 型安全な開発環境
+- **Three.js 0.177.0** - 3Dグラフィックスライブラリ
+- **React Three Fiber 9.1.1** - ReactでThree.jsを使用するためのライブラリ
+- **React Three Drei 10.1.2** - React Three Fiberの便利なヘルパー
+- **Tailwind CSS 4** - ユーティリティファーストCSSフレームワーク
+
+### 開発環境
+- **Node.js** - JavaScript実行環境
+- **ESLint** - コード品質管理
+- **PostCSS** - CSS処理ツール
+
+## 機能仕様
+
+### 1. Komyaku（脈球）システム
+- **初期生成数**: 6個
+- **最大数**: 15個
+- **色彩**: シアン、マゼンタ、ブルー、レッドの4色
+- **サイズ**: 半径0.6〜1.1の可変サイズ
+
+### 2. 物理シミュレーション
+- **移動**: 3D空間内での自由な浮遊運動
+- **衝突検知**: 球体同士の衝突判定
+- **重力**: 軽微な重力効果
+- **ドリフト**: ランダムな方向への緩やかな移動
+
+### 3. 生命サイクル
+- **分裂**: 条件を満たした球体が2つに分裂（メタボール効果付き）
+- **成長**: 時間経過による球体の成長
+- **消滅**: 個体数が閾値を超えた際の自然消滅
+- **再生**: 消滅後の新しい個体の生成
+
+### 4. メタボール分裂システム
+- **段階的分裂**: 合体状態から完全分離まで5段階のアニメーション
+- **接続部分**: 中央、メイン、ブリッジの3種類の接続要素
+- **滑らかな変形**: プログレス0.1-0.9の間で滑らかな形状変化
+- **透明度制御**: 各段階で適切な透明度調整
+
+### 5. ビジュアル要素
+- **目**: 各球体に白目と瞳孔を配置
+- **アニメーション**: 滑らかな動きと変形
+- **透明度**: 生命サイクルに応じた透明度変化
+- **照明**: 環境光による立体感の演出
+- **パルスエフェクト**: 新生成時の強調表示（1.5倍拡大→元サイズ）
+
+## ファイル構成
+
+```
+myaku2saver/
+├── app/
+│   ├── layout.tsx          # アプリケーションレイアウト
+│   ├── page.tsx            # メインページ
+│   ├── globals.css         # グローバルスタイル
+│   └── favicon.ico         # ファビコン
+├── components/
+│   ├── FluidBlobs.tsx      # メインコンポーネント
+│   └── komyaku/
+│       ├── Komyaku.tsx     # 個別球体コンポーネント
+│       ├── physics.ts      # 物理シミュレーション
+│       ├── types.ts        # 型定義
+│       ├── Sphere.tsx      # 球体メッシュ
+│       ├── WhiteEye.tsx    # 白目コンポーネント
+│       ├── Pupil.tsx       # 瞳孔コンポーネント
+│       └── MetaballBackground.tsx # メタボール背景（未使用）
+├── public/                 # 静的ファイル
+├── package.json           # 依存関係定義
+├── tsconfig.json          # TypeScript設定
+├── next.config.ts         # Next.js設定
+├── tailwind.config.js     # Tailwind CSS設定
+└── README.md              # プロジェクト仕様書
+```
+
+## データ構造
+
+### KomyakuData インターフェース
+```typescript
+interface KomyakuData {
+  id: number                    // 一意識別子
+  position: THREE.Vector3       // 3D座標
+  velocity: THREE.Vector3       // 速度ベクトル
+  radius: number               // 現在の半径
+  originalRadius: number       // 初期半径
+  color: string               // 色（16進数）
+  mass: number                // 質量
+  driftDirection: THREE.Vector3 // ドリフト方向
+  eyePhase: number            // 目のアニメーション位相
+  age: number                 // 年齢
+  canSplit: boolean           // 分裂可能フラグ
+  isSplitting: boolean        // 分裂中フラグ
+  splitProgress: number       // 分裂進行度
+  splitDirection: THREE.Vector3 // 分裂方向
+  isDying: boolean            // 消滅中フラグ
+  deathProgress: number       // 消滅進行度
+  opacity: number             // 透明度
+  childSphere1Offset: THREE.Vector3 // 子球体1のオフセット
+  childSphere2Offset: THREE.Vector3 // 子球体2のオフセット
+}
+```
+
+## 物理パラメータ
+
+### 基本設定
+- **重力**: 0.0001（Y軸負方向）
+- **摩擦**: 0.98
+- **反発係数**: 0.7
+- **分裂閾値**: 年齢15秒
+- **消滅閾値**: 個体数11個以上
+
+### 移動範囲
+- **X軸**: -7 〜 +7
+- **Y軸**: -4 〜 +4  
+- **Z軸**: -2 〜 +2
+
+## 開発・実行方法
+
+### 開発サーバーの起動
 ```bash
 npm run dev
-# or
+# または
 yarn dev
-# or
+# または
 pnpm dev
-# or
+# または
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いてアプリケーションを確認できます。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### ビルド
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 本番サーバーの起動
+```bash
+npm run start
+```
 
-## Learn More
+### コード品質チェック
+```bash
+npm run lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+## パフォーマンス最適化
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **SSR無効化**: Three.jsコンポーネントは動的インポートでSSRを回避
+- **デバイスピクセル比制限**: 最大2倍に制限してパフォーマンスを確保
+- **アンチエイリアス**: 高品質な描画のためアンチエイリアスを有効化
+- **フレームレート最適化**: useFrameフックによる効率的なアニメーション更新
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## ブラウザ対応
 
-## Deploy on Vercel
+- Chrome 90+
+- Firefox 88+
+- Safari 14+
+- Edge 90+
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+WebGLとES6+をサポートするモダンブラウザが必要です。
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## ライセンス
+
+このプロジェクトはプライベートプロジェクトです。
+
+## 今後の拡張予定
+
+- [ ] メタボール背景の実装
+- [ ] インタラクティブ操作の追加
+- [ ] 音響効果の統合
+- [ ] パフォーマンス監視機能
+- [ ] 設定パネルの追加
+
+---
+
+*このプロジェクトは生命の脈動をデジタルアートとして表現することを目的としています。*

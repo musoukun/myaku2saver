@@ -41,14 +41,14 @@ export default function FluidBlobs() {
 			komyakuArray.push({
 				id: i,
 				position: new THREE.Vector3(
-					(Math.random() - 0.5) * 8,
-					(Math.random() - 0.5) * 4,
-					(Math.random() - 0.5) * 3
+				(Math.random() - 0.5) * 14, // より幅広い範囲（8から14に）
+				(Math.random() - 0.5) * 8,  // 4から8に
+				(Math.random() - 0.5) * 4   // 3から4に
 				),
 				velocity: new THREE.Vector3(
-					(Math.random() - 0.5) * 0.015,
-					(Math.random() - 0.5) * 0.015,
-					(Math.random() - 0.5) * 0.015
+				(Math.random() - 0.5) * 0.004, // さらに遅く（0.008から0.004に）
+				(Math.random() - 0.5) * 0.004,
+				(Math.random() - 0.5) * 0.004
 				),
 				radius,
 				originalRadius: radius,
@@ -70,6 +70,9 @@ export default function FluidBlobs() {
 				opacity: 1,
 				childSphere1Offset: new THREE.Vector3(),
 				childSphere2Offset: new THREE.Vector3(),
+				// 初期の球体はパルスしない
+				isPulsing: false,
+				pulseProgress: 0,
 			});
 		}
 		return komyakuArray;
@@ -84,9 +87,12 @@ export default function FluidBlobs() {
 		<Canvas
 			camera={{ position: [0, 0, 12], fov: 65 }}
 			style={{
-				width: "100%",
-				height: "100%",
+				width: "100vw",
+				height: "100vh",
 				backgroundColor: "#000000",
+				position: "fixed",
+				top: 0,
+				left: 0,
 			}}
 			dpr={Math.min(window.devicePixelRatio, 2)}
 			gl={{ alpha: false, antialias: true }}

@@ -20,6 +20,9 @@ export interface KomyakuData {
   opacity: number
   childSphere1Offset: THREE.Vector3
   childSphere2Offset: THREE.Vector3
+  // パルスエフェクト用
+  isPulsing: boolean
+  pulseProgress: number
 }
 
 export const COLORS = {

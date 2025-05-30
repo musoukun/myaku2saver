@@ -7,7 +7,7 @@ const FluidBlobs = dynamic(() => import('../components/FluidBlobs'), { ssr: fals
 
 export default function Home() {
   return (
-    <main className="w-full h-screen bg-black overflow-hidden">
+    <main className="w-screen h-screen bg-black overflow-hidden fixed inset-0">
       <FluidBlobs />
     </main>
   )
